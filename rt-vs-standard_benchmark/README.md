@@ -1,10 +1,10 @@
-# Benchmark PREEMPT vs PREEMPT_RT su Raspberry Pi OS (Pi 5)
+# PREEMPT vs PREEMPT_RT Benchmark on Raspberry Pi OS (Pi 5)
 
-Confronto A/B tra `kernel8.img` (standard) e `kernel8_rt.img` (PREEMPT_RT)
-tramite cyclictest sotto carico stress-ng, con test statistico di
-Mann-Whitney U e rank-biserial correlation.
+A/B comparison between `kernel8.img` (standard) and `kernel8_rt.img` (PREEMPT_RT)
+using cyclictest under stress-ng load, with Mann-Whitney U statistical
+test and rank-biserial correlation.
 
-## Prerequisiti
+## Prerequisites
 
 ```bash
 sudo apt install rt-tests stress-ng
@@ -13,37 +13,37 @@ pip install scipy numpy pandas --break-system-packages
 
 ## Workflow
 
-### 1. Copia gli script sul Raspberry Pi
+### 1. Copy the scripts to the Raspberry Pi
 
 ```bash
-scp -r rt_benchmark/ turing:~/
-ssh turing
+scp -r rt_benchmark/ <your_raspberry_ip>:~/
+ssh <your_user>@<your_raspberry_ip>
 cd rt_benchmark
 chmod +x toggle_kernel.sh run_benchmark.sh analyze_benchmark.py
 ```
 
-### 2. Run sul kernel standard
+### 2. Run on the standard kernel
 
 ```bash
 sudo ./toggle_kernel.sh standard
 sudo reboot
 ```
 
-Dopo il riavvio, verifica di essere sul kernel giusto:
+After rebooting, verify you're on the right kernel:
 
 ```bash
 sudo ./toggle_kernel.sh status
-uname -a   # NON deve contenere "PREEMPT_RT"
+uname -a   # must NOT contain "PREEMPT_RT"
 ```
 
-Lancia il benchmark (10 run da 60s, adatta n_reps/durata secondo il tempo
-che hai a disposizione — più run = test statistico più robusto):
+Run the benchmark (10 runs of 60s, adjust n_reps/duration according to the
+time you have available — more runs = more robust statistical test):
 
 ```bash
 sudo ./run_benchmark.sh standard 10 60 ~/benchmark_results
 ```
 
-### 3. Run sul kernel RT
+### 3. Run on the RT kernel
 
 ```bash
 sudo ./toggle_kernel.sh rt
@@ -52,14 +52,14 @@ sudo reboot
 
 ```bash
 sudo ./toggle_kernel.sh status
-uname -a   # DEVE contenere "PREEMPT_RT"
+uname -a   # MUST contain "PREEMPT_RT"
 ```
 
 ```bash
 sudo ./run_benchmark.sh rt 10 60 ~/benchmark_results
 ```
 
-### 4. Analisi statistica
+### 4. Statistical analysis
 
 ```bash
 python3 analyze_benchmark.py ~/benchmark_results \
@@ -67,28 +67,27 @@ python3 analyze_benchmark.py ~/benchmark_results \
     --csv-out ~/benchmark_results/all_samples.csv
 ```
 
-Questo produce:
-- statistiche descrittive (min/media/mediana/p95/p99/max) per ciascun kernel
-- test di Mann-Whitney U (statistica U, p-value)
-- rank-biserial correlation come effect size
-- `summary_stats.csv` e (opzionale) `all_samples.csv` con tutti i campioni
-  espansi, pronti per ulteriori analisi in R/Python o per il paper
+This produces:
+- descriptive statistics (min/mean/median/p95/p99/max) for each kernel
+- Mann-Whitney U test (U statistic, p-value)
+- rank-biserial correlation as effect size
+- `summary_stats.csv` and (optionally) `all_samples.csv` with all
+  samples expanded, ready for further analysis in R/Python or for the paper
 
-## Note metodologiche
+## Methodological notes
 
-- Ogni run di cyclictest usa `-t -a` (un thread di misura per core, pinnato)
-  quindi ogni file contiene campioni per tutti e 4 i core del Pi 5.
-- Il carico stress-ng (`--cpu 4 --io 2 --vm 2`) satura CPU, I/O e memoria
-  simultaneamente: è la condizione in cui PREEMPT_RT fa la differenza
-  rispetto al kernel standard (a sistema idle le due distribuzioni tendono
-  a sovrapporsi, come avevi già osservato).
-- `run_benchmark.sh` inserisce 3s di assestamento del carico prima di
-  iniziare a misurare e 5s di pausa tra le run, per ridurre l'autocorrelazione
-  tra run consecutive.
-- Il parser espande l'istogramma cyclictest (bucket latenza -> conteggio)
-  nell'intero multiset di campioni originali (nessuna perdita di
-  informazione, a differenza dell'uso dei soli min/avg/max riportati nel
-  sommario testuale di cyclictest).
-- `toggle_kernel.sh` salva un backup timestampato di `config.txt` ad ogni
-  modifica, per poter tornare indietro manualmente in caso di problemi di
-  boot.
+- Each cyclictest run uses `-t -a` (one measurement thread per core, pinned)
+  so each file contains samples for all 4 cores of the Pi 5.
+- The stress-ng load (`--cpu 4 --io 2 --vm 2`) saturates CPU, I/O and memory
+  simultaneously: this is the condition where PREEMPT_RT makes a difference
+  compared to the standard kernel (at idle the two distributions tend
+  to overlap, as you had already observed).
+- `run_benchmark.sh` inserts a 3s load settling period before starting
+  to measure, and a 5s pause between runs, to reduce autocorrelation
+  between consecutive runs.
+- The parser expands the cyclictest histogram (latency bucket -> count)
+  into the full multiset of original samples (no loss of
+  information, unlike using only the min/avg/max reported in cyclictest's
+  text summary).
+- `toggle_kernel.sh` saves a timestamped backup of `config.txt` on each
+  change, so you can manually roll back in case of boot issues.

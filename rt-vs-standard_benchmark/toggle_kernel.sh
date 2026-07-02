@@ -1,15 +1,16 @@
 #!/bin/bash
-# toggle_kernel.sh - passa tra kernel standard (kernel8.img) e RT (kernel8_rt.img)
-# su Raspberry Pi OS (Pi 5 / BCM2712), modificando /boot/firmware/config.txt.
+# toggle_kernel.sh - switches between the standard kernel (kernel8.img) and
+# RT (kernel8_rt.img) on Raspberry Pi OS (Pi 5 / BCM2712), by modifying
+# /boot/firmware/config.txt.
 #
-# Uso:
-#   sudo ./toggle_kernel.sh standard   # imposta il prossimo boot su kernel8.img
-#   sudo ./toggle_kernel.sh rt         # imposta il prossimo boot su kernel8_rt.img
-#   sudo ./toggle_kernel.sh status     # mostra kernel configurato vs kernel in esecuzione
+# Usage:
+#   sudo ./toggle_kernel.sh standard   # set kernel8.img for the next boot
+#   sudo ./toggle_kernel.sh rt         # set kernel8_rt.img for the next boot
+#   sudo ./toggle_kernel.sh status     # show configured kernel vs running kernel
 #
-# Dopo aver impostato standard/rt, serve un reboot manuale (sudo reboot) per
-# far effetto: lo script non riavvia automaticamente per lasciarti il
-# controllo su quando interrompere eventuali run in corso.
+# After setting standard/rt, a manual reboot (sudo reboot) is required to
+# take effect: the script doesn't reboot automatically so you keep
+# control over when to interrupt any runs in progress.
 
 set -euo pipefail
 
@@ -18,31 +19,31 @@ KERNEL_STD="kernel8.img"
 KERNEL_RT="kernel8_rt.img"
 
 usage() {
-    echo "Uso: sudo $0 [standard|rt|status]"
+    echo "Usage: sudo $0 [standard|rt|status]"
     exit 1
 }
 
-[ "$(id -u)" -eq 0 ] || { echo "Esegui con sudo."; exit 1; }
+[ "$(id -u)" -eq 0 ] || { echo "Run with sudo."; exit 1; }
 [ $# -eq 1 ] || usage
 
 current_configured_kernel() {
     grep -E "^kernel=" "$CONFIG" 2>/dev/null | tail -1 | cut -d= -f2 \
-        || echo "(nessuna riga kernel= esplicita, default implicito: ${KERNEL_STD})"
+        || echo "(no explicit kernel= line, implicit default: ${KERNEL_STD})"
 }
 
 case "$1" in
     status)
-        echo "Kernel configurato in config.txt : $(current_configured_kernel)"
-        echo "Kernel attualmente in esecuzione  : $(uname -r)"
-        echo "uname -v                          : $(uname -v)"
+        echo "Kernel configured in config.txt : $(current_configured_kernel)"
+        echo "Kernel currently running        : $(uname -r)"
+        echo "uname -v                        : $(uname -v)"
         ;;
     standard|rt)
         TARGET="$KERNEL_STD"
         [ "$1" = "rt" ] && TARGET="$KERNEL_RT"
 
         if [ ! -f "/boot/firmware/${TARGET}" ]; then
-            echo "ERRORE: /boot/firmware/${TARGET} non esiste."
-            echo "Verifica con: ls /boot/firmware/kernel*.img"
+            echo "ERROR: /boot/firmware/${TARGET} does not exist."
+            echo "Check with: ls /boot/firmware/kernel*.img"
             exit 1
         fi
 
@@ -50,10 +51,10 @@ case "$1" in
         sed -i '/^kernel=/d' "$CONFIG"
         echo "kernel=${TARGET}" >> "$CONFIG"
 
-        echo "Impostato kernel=${TARGET} in ${CONFIG}"
-        echo "Backup salvato come ${CONFIG}.bak.<timestamp>"
+        echo "Set kernel=${TARGET} in ${CONFIG}"
+        echo "Backup saved as ${CONFIG}.bak.<timestamp>"
         echo ""
-        echo "Riavvia ora con: sudo reboot"
+        echo "Reboot now with: sudo reboot"
         ;;
     *)
         usage

@@ -1,23 +1,23 @@
 #!/bin/bash
-# run_benchmark.sh - esegue N run ripetute di cyclictest sotto carico stress-ng
-# e salva l'output grezzo (istogramma incluso) di ognuna in un file separato.
+# run_benchmark.sh - runs N repeated cyclictest runs under stress-ng load
+# and saves the raw output (histogram included) of each to a separate file.
 #
-# Uso:
-#   sudo ./run_benchmark.sh <label> <n_reps> <durata_sec> <output_dir>
+# Usage:
+#   sudo ./run_benchmark.sh <label> <n_reps> <duration_sec> <output_dir>
 #
-# Esempio (dopo aver riavviato sul kernel RT):
+# Example (after rebooting on the RT kernel):
 #   sudo ./run_benchmark.sh rt 10 60 ~/benchmark_results
 #
-# Esempio (dopo aver riavviato sul kernel standard):
+# Example (after rebooting on the standard kernel):
 #   sudo ./run_benchmark.sh standard 10 60 ~/benchmark_results
 #
-# <label> finisce nel nome dei file di output ed è la colonna "kernel" usata
-# poi da analyze_benchmark.py per il confronto statistico.
+# <label> ends up in the output file names and is the "kernel" column used
+# later by analyze_benchmark.py for the statistical comparison.
 
 set -euo pipefail
 
-[ "$(id -u)" -eq 0 ] || { echo "Esegui con sudo."; exit 1; }
-[ $# -eq 4 ] || { echo "Uso: sudo $0 <label> <n_reps> <durata_sec> <output_dir>"; exit 1; }
+[ "$(id -u)" -eq 0 ] || { echo "Run with sudo."; exit 1; }
+[ $# -eq 4 ] || { echo "Usage: sudo $0 <label> <n_reps> <duration_sec> <output_dir>"; exit 1; }
 
 LABEL="$1"
 NREPS="$2"
@@ -26,21 +26,21 @@ OUTDIR="$4"
 
 mkdir -p "$OUTDIR"
 
-command -v cyclictest >/dev/null 2>&1 || { echo "cyclictest non trovato: sudo apt install rt-tests"; exit 1; }
-command -v stress-ng  >/dev/null 2>&1 || { echo "stress-ng non trovato: sudo apt install stress-ng"; exit 1; }
+command -v cyclictest >/dev/null 2>&1 || { echo "cyclictest not found: sudo apt install rt-tests"; exit 1; }
+command -v stress-ng  >/dev/null 2>&1 || { echo "stress-ng not found: sudo apt install stress-ng"; exit 1; }
 
-echo "=== Benchmark cyclictest ==="
-echo "Kernel in esecuzione : $(uname -r)"
-echo "uname -v             : $(uname -v)"
-echo "Label                : $LABEL"
-echo "Ripetizioni           : $NREPS"
-echo "Durata per run        : ${DURATION}s"
-echo "Output dir             : $OUTDIR"
+echo "=== cyclictest benchmark ==="
+echo "Running kernel        : $(uname -r)"
+echo "uname -v              : $(uname -v)"
+echo "Label                 : $LABEL"
+echo "Repetitions           : $NREPS"
+echo "Duration per run      : ${DURATION}s"
+echo "Output dir            : $OUTDIR"
 echo "============================"
 
-# salva un manifest con i metadati del kernel per ogni run (utile in fase di
-# analisi per verificare di non aver confrontato per errore due run sullo
-# stesso kernel)
+# save a manifest with the kernel metadata for each run (useful during
+# analysis to verify that two runs on the same kernel weren't compared
+# by mistake)
 MANIFEST="${OUTDIR}/manifest_${LABEL}.txt"
 {
     echo "label=${LABEL}"
@@ -60,18 +60,18 @@ for i in $(seq 1 "$NREPS"); do
         > "${OUTDIR}/stress_${LABEL}_rep${i}.log" 2>&1 &
     STRESS_PID=$!
 
-    sleep 3   # lascia stabilizzare il carico prima di iniziare a misurare
+    sleep 3   # let the load settle before starting to measure
 
     OUTFILE="${OUTDIR}/cyclictest_${LABEL}_rep${i}.txt"
     cyclictest -t -a -p 90 -m -D "$DURATION" --histogram=1000 -q > "$OUTFILE"
 
     wait "$STRESS_PID" 2>/dev/null || true
 
-    echo "Salvato: $OUTFILE"
-    sleep 5   # pausa tra le run per non far ereditare condizioni dalla run precedente
+    echo "Saved: $OUTFILE"
+    sleep 5   # pause between runs so conditions aren't inherited from the previous run
 done
 
 echo ""
-echo "Completato. ${NREPS} file cyclictest_${LABEL}_rep*.txt in ${OUTDIR}"
-echo "Prossimo passo: sudo ./toggle_kernel.sh <altro-kernel> && sudo reboot,"
-echo "poi ripeti con l'altra label, infine lancia analyze_benchmark.py"
+echo "Done. ${NREPS} cyclictest_${LABEL}_rep*.txt files in ${OUTDIR}"
+echo "Next step: sudo ./toggle_kernel.sh <other-kernel> && sudo reboot,"
+echo "then repeat with the other label, and finally run analyze_benchmark.py"
